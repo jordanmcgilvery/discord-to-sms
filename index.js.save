@@ -1,0 +1,50 @@
+const { Client, GatewayIntentBits } = require("discord.js");
+const twilio = require("twilio");
+
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+
+const TWILIO_SID = process.env.TWILIO_SID;
+const TWILIO_TOKEN = process.env.TWILIO_TOKEN;
+const TWILIO_FROM = process.env.TWILIO_FROM;
+const TO_NUMBER = process.env.TO_NUMBER;
+
+const tw = twilio(TWILIO_SID, TWILIO_TOKEN);
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
+
+client.once("ready", () => {
+  console.log(`Logged in as ${client.user.tag}`);
+});
+
+client.on("messageCreate", async (msg) => {
+  try {
+    if (msg.author?.bot) return; // ignore bots
+
+    const guildName = msg.guild.name;
+    const channelName = msg.channel?.name || "unknown-channel";
+    const author = msg.author?.username || "unknown";
+    const content = (msg.content || "").trim();
+
+    if (!content) return; // skip empty / attachments-only
+
+    const body = `[${guildName} #${channelName}]\n${author}: ${content}`;
+
+    await tw.messages.create({
+      from: TWILIO_FROM,
+      to: TO_NUMBER,
+      body,
+    });
+
+    console.log("SMS sent:", body.slice(0, 120));
+  } catch (e) {
+    console.error("Failed:", e?.message || e);
+  }
+});
+
+client.login(DISCORD_TOKEN);
