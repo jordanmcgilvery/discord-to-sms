@@ -12,11 +12,11 @@ const EMAIL_TO = process.env.EMAIL_TO;
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
-  secure: true, // true for 465
-  auth: {
-    user: EMAIL_FROM,
-    pass: EMAIL_PASS,
-  },
+  secure: true,
+  auth: { user: EMAIL_FROM, pass: EMAIL_PASS },
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 20000,
 });
 const client = new Client({
   intents: [
