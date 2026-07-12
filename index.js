@@ -1,12 +1,13 @@
 require("dotenv").config();
 
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
-const { Resend } = require("resend");
+const twilio = require("twilio");
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM;
-const EMAIL_TO = process.env.EMAIL_TO;
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER; // your Twilio number, e.g. +15551234567
+const SMS_TO = process.env.SMS_TO; // your personal phone number, e.g. +15559876543
 
 function requireEnv(name) {
   const v = process.env[name];
@@ -18,11 +19,12 @@ function requireEnv(name) {
 }
 
 requireEnv("DISCORD_TOKEN");
-requireEnv("RESEND_API_KEY");
-requireEnv("EMAIL_FROM");
-requireEnv("EMAIL_TO");
+requireEnv("TWILIO_ACCOUNT_SID");
+requireEnv("TWILIO_AUTH_TOKEN");
+requireEnv("TWILIO_FROM_NUMBER");
+requireEnv("SMS_TO");
 
-const resend = new Resend(RESEND_API_KEY);
+const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
 const client = new Client({
   intents: [
@@ -52,16 +54,18 @@ client.on("messageCreate", async (msg) => {
 
     const body = `${source}\n${msg.author.username}: ${content}`;
 
-    await resend.emails.send({
-      from: EMAIL_FROM,
-      to: EMAIL_TO,
-      subject: "Discord Alert",
-      text: body,
+    // SMS bodies are best kept short; trim to a safe length (1 SMS segment ~160 chars)
+    const smsBody = body.length > 320 ? body.slice(0, 317) + "..." : body;
+
+    await twilioClient.messages.create({
+      body: smsBody,
+      from: TWILIO_FROM_NUMBER,
+      to: SMS_TO,
     });
 
     console.log("Text sent:", body);
   } catch (err) {
-    console.error("Resend error:", err?.message || err);
+    console.error("Twilio error:", err?.message || err);
   }
 });
 
