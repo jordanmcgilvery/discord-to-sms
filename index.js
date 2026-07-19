@@ -11,6 +11,16 @@ const MESSENGER_WEBHOOK_SECRET = process.env.MESSENGER_WEBHOOK_SECRET;
 
 app.use(express.json());
 
+app.use("/messenger-webhook", (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, X-Forwarder-Secret");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.post("/messenger-webhook", async (req, res) => {
   if (req.headers["x-forwarder-secret"] !== MESSENGER_WEBHOOK_SECRET) {
     return res.sendStatus(401);
