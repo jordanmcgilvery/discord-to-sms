@@ -42,6 +42,37 @@ app.post("/messenger-webhook", async (req, res) => {
   res.sendStatus(200);
 });
 
+const IMESSAGE_WEBHOOK_SECRET = process.env.IMESSAGE_WEBHOOK_SECRET;
+
+app.use("/imessage-webhook", (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, X-Forwarder-Secret");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
+
+app.post("/imessage-webhook", async (req, res) => {
+  if (req.headers["x-forwarder-secret"] !== IMESSAGE_WEBHOOK_SECRET) {
+    return res.sendStatus(401);
+  }
+
+  const { title, body } = req.body;
+
+  try {
+    await twilioClient.messages.create({
+      body: `iMessage — ${title}: ${body}`,
+      from: TWILIO_FROM_NUMBER,
+      to: process.env.SMS_TO,
+    });
+    console.log("Forwarded iMessage via SMS.");
+  } catch (err) {
+    console.error("iMessage SMS error:", err?.message || err);
+  }
+
+  res.sendStatus(200);
+});
+
 app.listen(process.env.PORT || 8080, "0.0.0.0", () => console.log("Health check server running"));
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
