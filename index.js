@@ -2,6 +2,11 @@ require("dotenv").config();
 
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const twilio = require("twilio");
+const express = require("express");
+
+const app = express();
+app.get("/", (req, res) => res.send("OK"));
+app.listen(process.env.PORT || 8080, "0.0.0.0", () => console.log("Health check server running"));
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
