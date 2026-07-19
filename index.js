@@ -6,6 +6,32 @@ const express = require("express");
 
 const app = express();
 app.get("/", (req, res) => res.send("OK"));
+
+const MESSENGER_WEBHOOK_SECRET = process.env.MESSENGER_WEBHOOK_SECRET;
+
+app.use(express.json());
+
+app.post("/messenger-webhook", async (req, res) => {
+  if (req.headers["x-forwarder-secret"] !== MESSENGER_WEBHOOK_SECRET) {
+    return res.sendStatus(401);
+  }
+
+  const { title, body } = req.body;
+
+  try {
+    await twilioClient.messages.create({
+      body: `Messenger — ${title}: ${body}`,
+      from: TWILIO_FROM_NUMBER,
+      to: process.env.SMS_TO,
+    });
+    console.log("Forwarded Messenger notification via SMS.");
+  } catch (err) {
+    console.error("Messenger SMS error:", err?.message || err);
+  }
+
+  res.sendStatus(200);
+});
+
 app.listen(process.env.PORT || 8080, "0.0.0.0", () => console.log("Health check server running"));
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
