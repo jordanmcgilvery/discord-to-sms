@@ -7,11 +7,11 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER; // your Twilio number, e.g. +16413815509
-const CALL_TO = process.env.CALL_TO; // your Light Phone number, e.g. +14087068540
+const SMS_TO = process.env.SMS_TO; // your Light Phone number, e.g. +14087068540
 
-// How long to wait after the last message before placing the call (ms)
+// How long to wait after the last message before sending the text (ms)
 const BATCH_WINDOW_MS = 30 * 1000;
-// Safety cap: if messages keep flowing, force a call after this long anyway (ms)
+// Safety cap: if messages keep flowing, force a send after this long anyway (ms)
 const MAX_WAIT_MS = 2 * 60 * 1000;
 
 function requireEnv(name) {
@@ -27,18 +27,9 @@ requireEnv("DISCORD_TOKEN");
 requireEnv("TWILIO_ACCOUNT_SID");
 requireEnv("TWILIO_AUTH_TOKEN");
 requireEnv("TWILIO_FROM_NUMBER");
-requireEnv("CALL_TO");
+requireEnv("SMS_TO");
 
 const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-
-function escapeXml(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
 
 // --- Batching state ---
 let pendingMessages = [];
@@ -50,15 +41,15 @@ function queueMessage(entry) {
 
   // Reset the "quiet period" timer every time a new message arrives
   if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(flushAndCall, BATCH_WINDOW_MS);
+  debounceTimer = setTimeout(flushAndSend, BATCH_WINDOW_MS);
 
   // Start the hard cap timer only once, when the batch begins
   if (!maxWaitTimer) {
-    maxWaitTimer = setTimeout(flushAndCall, MAX_WAIT_MS);
+    maxWaitTimer = setTimeout(flushAndSend, MAX_WAIT_MS);
   }
 }
 
-async function flushAndCall() {
+async function flushAndSend() {
   if (debounceTimer) clearTimeout(debounceTimer);
   if (maxWaitTimer) clearTimeout(maxWaitTimer);
   debounceTimer = null;
@@ -75,21 +66,20 @@ async function flushAndCall() {
       ? "You have 1 new Discord message."
       : `You have ${count} new Discord messages.`;
 
-  const lines = batch.map((m, i) => `Message ${i + 1}, in ${m.source}, from ${m.author}: ${m.content}`);
-  const spokenText = `${intro} ${lines.join(". ")}`;
+  const lines = batch.map((m, i) => `${i + 1}. [${m.source}] ${m.author}: ${m.content}`);
+  const body = `${intro}\n${lines.join("\n")}`;
 
-  const trimmedSpoken = spokenText.length > 1400 ? spokenText.slice(0, 1397) + "..." : spokenText;
-  const twiml = `<Response><Say voice="alice">${escapeXml(trimmedSpoken)}</Say></Response>`;
+  const trimmedBody = body.length > 1500 ? body.slice(0, 1497) + "..." : body;
 
   try {
-    await twilioClient.calls.create({
-      twiml,
+    const message = await twilioClient.messages.create({
+      body: trimmedBody,
       from: TWILIO_FROM_NUMBER,
-      to: CALL_TO,
+      to: SMS_TO,
     });
-    console.log(`Call placed for batch of ${count} message(s).`);
+    console.log(`Text sent for batch of ${count} message(s). SID: ${message.sid}`);
   } catch (err) {
-    console.error("Twilio call error:", err?.message || err);
+    console.error("Twilio SMS error:", err?.message || err);
   }
 }
 
