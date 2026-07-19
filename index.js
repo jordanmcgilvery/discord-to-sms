@@ -26,17 +26,18 @@ app.post("/messenger-webhook", async (req, res) => {
     return res.sendStatus(401);
   }
 
-  const { title, body } = req.body;
+  const { title, body, source } = req.body;
+  const label = source === "www.instagram.com" ? "Instagram" : "Messenger";
 
   try {
     await twilioClient.messages.create({
-      body: `Messenger — ${title}: ${body}`,
+      body: `${label} — ${title}: ${body}`,
       from: TWILIO_FROM_NUMBER,
       to: process.env.SMS_TO,
     });
-    console.log("Forwarded Messenger notification via SMS.");
+    console.log(`Forwarded ${label} notification via SMS.`);
   } catch (err) {
-    console.error("Messenger SMS error:", err?.message || err);
+    console.error(`${label} SMS error:`, err?.message || err);
   }
 
   res.sendStatus(200);
